@@ -72,7 +72,11 @@ const createTables = async (): Promise<void> => {
     .addColumn('user_id', 'integer', (col) => col.notNull().references('users.id'))
     .addColumn('author_id', 'integer', (col) => col.notNull().references('authors.id'))
     .addColumn('book_id', 'integer', (col) => col.references('books.id'))
-    .addColumn('sent_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .addColumn('notification_type', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.defaultTo('pending').notNull())
+    .addColumn('error_message', 'text')
+    .addColumn('sent_at', 'text')
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
     .execute();
 
   // Create user_author_subscriptions table

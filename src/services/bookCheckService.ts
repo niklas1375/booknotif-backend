@@ -124,6 +124,8 @@ export class BookCheckService {
             user_id: subscriber.user_id,
             author_id: authorId,
             book_id: bookId,
+            notification_type: 'new_book',
+            status: 'pending',
           })
           .execute();
       }

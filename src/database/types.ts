@@ -31,7 +31,11 @@ export interface NotificationsTable {
   user_id: number;
   author_id: number;
   book_id: number | null;
+  notification_type: string; // 'new_book' or 'onleihe_available'
+  status: string; // 'pending', 'sent', 'failed'
+  error_message: string | null;
   sent_at: ColumnType<Date, string | undefined, never>;
+  created_at: ColumnType<Date, string | undefined, never>;
 }
 
 export interface UserAuthorSubscriptionsTable {

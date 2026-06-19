@@ -4,6 +4,10 @@ import dotenv from 'dotenv';
 import { initDatabase } from './database/db';
 import { initBookCheckCron, triggerManualBookCheck } from './jobs/bookCheckCron';
 import { initOnleiheCheckCron, triggerManualOnleiheCheck } from './jobs/onleiheCheckCron';
+import { initEmailNotificationCron, triggerManualEmailProcessing } from './jobs/emailNotificationCron';
+import authorRoutes from './routes/authorRoutes';
+import bookRoutes from './routes/bookRoutes';
+import userRoutes from './routes/userRoutes';
 
 dotenv.config();
 
@@ -24,6 +28,11 @@ app.get('/health', (_req: Request, res: Response) => {
 app.get('/api', (_req: Request, res: Response) => {
   res.json({ message: 'Book Notification API' });
 });
+
+// Mount route handlers
+app.use('/api/authors', authorRoutes);
+app.use('/api/books', bookRoutes);
+app.use('/api/users', userRoutes);
 
 // Manual trigger endpoint for book check (useful for testing)
 app.post('/api/check-books', async (_req: Request, res: Response) => {
@@ -47,6 +56,17 @@ app.post('/api/check-onleihe', async (_req: Request, res: Response) => {
   }
 });
 
+// Manual trigger endpoint for email processing (useful for testing)
+app.post('/api/process-emails', async (_req: Request, res: Response) => {
+  try {
+    await triggerManualEmailProcessing();
+    res.json({ message: 'Email processing triggered successfully' });
+  } catch (error) {
+    console.error('Error triggering email processing:', error);
+    res.status(500).json({ error: 'Failed to trigger email processing' });
+  }
+});
+
 // Initialize database and start server
 const startServer = async () => {
   try {
@@ -56,6 +76,7 @@ const startServer = async () => {
     // Initialize cron jobs
     initBookCheckCron();
     initOnleiheCheckCron();
+    initEmailNotificationCron();
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

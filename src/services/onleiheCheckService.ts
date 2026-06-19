@@ -129,6 +129,8 @@ export class OnleiheCheckService {
             user_id: subscription.user_id,
             author_id: book.author_id,
             book_id: bookId,
+            notification_type: 'onleihe_available',
+            status: 'pending',
           })
           .execute();
       }
