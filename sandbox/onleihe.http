@@ -1,0 +1,68 @@
+@hostname = api.onleihe.de
+
+# empty OAuth auth call
+# @name login
+POST https://{{hostname}}/user-application/v1/auth/login
+Content-Type: application/json
+
+{
+    "onleiheId": "{{onleiheId}}"
+}
+
+###
+
+@token = {{login.response.body.accessToken}}
+
+# actual search
+# @name search
+POST https://{{hostname}}/ui/v1/onleihe/{{onleiheId}}/search 
+Accept: application/json, text/plain, */*
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "facets": [
+        {
+            "field": "licence.isAvailable"
+        }
+    ],
+    "from": 0,
+    "postFilters": [
+        {
+            "field": "mediaType",
+            "operator": "OR",
+            "type": "TERMS",
+            "values": [
+                "E_BOOK"
+            ]
+        },
+        {
+            "field": "authors_fullName",
+            "operator": "OR",
+            "type": "TERMS",
+            "values": [
+                "Ken Follett"
+            ]
+        }
+    ],
+    "query": [
+        {
+            "fields": [],
+            "isExact": false,
+            "operator": "AND",
+            "query": "waffen des lichts"
+        }
+    ],
+    "size": 20,
+    "userLanguage": "de_DE"
+}
+
+###
+
+@productId = {{search.response.body.content[0].productId}}
+
+# book details
+# @name bookDetails
+GET https://{{hostname}}/ui/v2/pages/product-details/{{productId}}
+    ?onleiheId={{onleiheId}}
+Authorization: Bearer {{token}}

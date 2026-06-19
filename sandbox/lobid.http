@@ -1,0 +1,18 @@
+@hostname = lobid.org
+@authorName = Rebecca Yarros
+
+# @name authorSearch
+GET https://{{hostname}}/gnd/search
+    ?q=preferredName:'{{authorName}}'
+    &filter=type:Person
+    &format=json
+
+###
+
+@authorId = {{authorSearch.response.body.member[0].gndIdentifier}}
+
+# @name worksSearch
+GET https://{{hostname}}/resources/search
+    ?filter=contribution.agent.gndIdentifier:"{{authorId}}"
+    &sort=publication.startDate:desc
+    &format=json

@@ -1,0 +1,9 @@
+@hostname = www.googleapis.com
+@authorName = Rebecca Yarros
+
+# @name bookSearch
+GET https://{{hostname}}/books/v1/volumes
+    ?q=inauthor:"{{authorName}}"
+    &orderBy=newest
+    &printType=books
+    &key={{googlebooksapikey}}

@@ -1,0 +1,19 @@
+{
+  "name": "booknotification",
+  "version": "1.0.0",
+  "description": "keep up to date on your favorite authors",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niklas1375/booknotif-backend.git"
+  },
+  "author": "niklas1375",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/niklas1375/booknotif-backend/issues"
+  },
+  "homepage": "https://github.com/niklas1375/booknotif-backend#readme"
+}

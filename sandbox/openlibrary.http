@@ -1,0 +1,30 @@
+@hostname = openlibrary.org
+@authorName = Ken Follett
+
+# @name authorSearch
+GET https://{{hostname}}/search/authors.json
+    ?q={{authorName}}
+    &sort=work_count%20desc
+
+###
+
+# restrict resuls to where the work_count is highest?
+
+@authorKey = {{authorSearch.response.body.docs[0].key}}
+
+# @name newestBookSearch
+GET https://{{hostname}}/search.json
+    ?author_key={{authorKey}}
+    &q=(language:ger OR language:eng)+-subject_key=Collection
+    &sort=new
+    &lang=de
+    &fields=key,title,author_name,editions,publish_date,language
+
+###
+
+GET https://{{hostname}}/search.json
+    ?author={{authorName}}
+    &q=(language:ger OR language:eng)+-subject_key=Collection
+    &sort=new
+    &lang=de
+    &fields=key,title,author_name,author_key,editions,publish_date,language
