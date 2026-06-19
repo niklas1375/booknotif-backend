@@ -59,6 +59,8 @@ const createTables = async (): Promise<void> => {
     .addColumn('author_id', 'integer', (col) => col.references('authors.id'))
     .addColumn('isbn', 'text')
     .addColumn('published_date', 'text')
+    .addColumn('onleihe_available', 'integer', (col) => col.defaultTo(0).notNull())
+    .addColumn('onleihe_checked_at', 'text')
     .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
     .execute();
 
@@ -71,6 +73,44 @@ const createTables = async (): Promise<void> => {
     .addColumn('author_id', 'integer', (col) => col.notNull().references('authors.id'))
     .addColumn('book_id', 'integer', (col) => col.references('books.id'))
     .addColumn('sent_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create user_author_subscriptions table
+  await db.schema
+    .createTable('user_author_subscriptions')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('user_id', 'integer', (col) => col.notNull().references('users.id'))
+    .addColumn('author_id', 'integer', (col) => col.notNull().references('authors.id'))
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create unique index on user_id and author_id to prevent duplicate subscriptions
+  await db.schema
+    .createIndex('idx_user_author_subscriptions_unique')
+    .ifNotExists()
+    .on('user_author_subscriptions')
+    .columns(['user_id', 'author_id'])
+    .unique()
+    .execute();
+
+  // Create user_book_subscriptions table
+  await db.schema
+    .createTable('user_book_subscriptions')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('user_id', 'integer', (col) => col.notNull().references('users.id'))
+    .addColumn('book_id', 'integer', (col) => col.notNull().references('books.id'))
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create unique index on user_id and book_id to prevent duplicate subscriptions
+  await db.schema
+    .createIndex('idx_user_book_subscriptions_unique')
+    .ifNotExists()
+    .on('user_book_subscriptions')
+    .columns(['user_id', 'book_id'])
+    .unique()
     .execute();
 
   console.log('Database tables created successfully');
