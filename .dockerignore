@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+
+# Database
+data/
+*.db
+*.db-journal
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+test/
+tests/
+*.test.ts
+*.spec.ts
+
+# Temporary files
+tmp/
+temp/
+
+# Sandbox
+sandbox/
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
