@@ -1,5 +1,4 @@
 const ONLEIHE_API_URL = 'https://api.onleihe.de';
-const ONLEIHE_ID = process.env.ONLEIHE_ID;
 
 interface OnleiheAuthResponse {
   accessToken: string;
@@ -15,16 +14,18 @@ interface OnleiheSearchResult {
 }
 
 export class OnleiheService {
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
+  // Store tokens per library ID
+  private accessTokens: Map<string, { token: string; expiry: number }> = new Map();
 
   /**
-   * Authenticate with Onleihe API and get access token
+   * Authenticate with Onleihe API and get access token for a specific library
+   * @param onleiheId The Onleihe library ID
    */
-  private async authenticate(): Promise<string> {
-    // Check if we have a valid token
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
+  private async authenticate(onleiheId: string): Promise<string> {
+    // Check if we have a valid token for this library
+    const cached = this.accessTokens.get(onleiheId);
+    if (cached && Date.now() < cached.expiry) {
+      return cached.token;
     }
 
     try {
@@ -34,35 +35,38 @@ export class OnleiheService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          onleiheId: ONLEIHE_ID,
+          onleiheId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Onleihe authentication failed: ${response.status} ${response.statusText}`);
+        throw new Error(`Onleihe authentication failed for ${onleiheId}: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json() as OnleiheAuthResponse;
-      this.accessToken = data.accessToken;
+      const token = data.accessToken;
       // Set token expiry to 10 minutes from now (adjust as needed)
-      this.tokenExpiry = Date.now() + 600000;
+      const expiry = Date.now() + 600000;
 
-      return this.accessToken;
+      this.accessTokens.set(onleiheId, { token, expiry });
+
+      return token;
     } catch (error) {
-      console.error('Error authenticating with Onleihe:', error);
+      console.error(`Error authenticating with Onleihe library ${onleiheId}:`, error);
       throw error;
     }
   }
 
   /**
-   * Search for a book in Onleihe by title and author
+   * Search for a book in a specific Onleihe library by title and author
+   * @param onleiheId The Onleihe library ID
    * @param title Book title
    * @param authorName Author name
    * @returns True if book is found in Onleihe, false otherwise
    */
-  async searchBook(title: string, authorName: string): Promise<boolean> {
+  async searchBook(onleiheId: string, title: string, authorName: string): Promise<boolean> {
     try {
-      const token = await this.authenticate();
+      const token = await this.authenticate(onleiheId);
 
       const searchBody = {
         facets: [
@@ -98,7 +102,7 @@ export class OnleiheService {
       };
 
       const response = await fetch(
-        `${ONLEIHE_API_URL}/ui/v1/onleihe/${ONLEIHE_ID}/search`,
+        `${ONLEIHE_API_URL}/ui/v1/onleihe/${onleiheId}/search`,
         {
           method: 'POST',
           headers: {
@@ -111,7 +115,7 @@ export class OnleiheService {
       );
 
       if (!response.ok) {
-        console.error(`Onleihe search failed: ${response.status} ${response.statusText}`);
+        console.error(`Onleihe search failed for library ${onleiheId}: ${response.status} ${response.statusText}`);
         return false;
       }
 
@@ -119,25 +123,26 @@ export class OnleiheService {
       
       // Check if we found any results
       if (data.content && data.content.length > 0) {
-        console.log(`Found "${title}" by ${authorName} in Onleihe`);
+        console.log(`Found "${title}" by ${authorName} in Onleihe library ${onleiheId}`);
         return true;
       }
 
       return false;
     } catch (error) {
-      console.error(`Error searching Onleihe for "${title}" by ${authorName}:`, error);
+      console.error(`Error searching Onleihe library ${onleiheId} for "${title}" by ${authorName}:`, error);
       return false;
     }
   }
 
   /**
-   * Check if a book exists in Onleihe (wrapper for searchBook)
+   * Check if a book exists in a specific Onleihe library
+   * @param onleiheId The Onleihe library ID
    * @param title Book title
    * @param authorName Author name
    * @returns True if book exists in Onleihe
    */
-  async isBookAvailable(title: string, authorName: string): Promise<boolean> {
-    return this.searchBook(title, authorName);
+  async isBookAvailable(onleiheId: string, title: string, authorName: string): Promise<boolean> {
+    return this.searchBook(onleiheId, title, authorName);
   }
 }
 

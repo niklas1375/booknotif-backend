@@ -211,4 +211,168 @@ router.get('/:id/notifications', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Get all library subscriptions for a user
+ */
+router.get('/:id/library-subscriptions', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id as string);
+
+    if (isNaN(userId)) {
+      res.status(400).json({ error: 'Invalid user ID' });
+      return;
+    }
+
+    const db = getDatabase();
+    const subscriptions = await db
+      .selectFrom('user_onleihe_libraries')
+      .innerJoin('onleihe_libraries', 'user_onleihe_libraries.library_id', 'onleihe_libraries.id')
+      .select([
+        'user_onleihe_libraries.id as subscription_id',
+        'user_onleihe_libraries.created_at as subscribed_at',
+        'onleihe_libraries.id as library_id',
+        'onleihe_libraries.name as library_name',
+        'onleihe_libraries.onleihe_id',
+        'onleihe_libraries.description',
+      ])
+      .where('user_onleihe_libraries.user_id', '=', userId)
+      .orderBy('onleihe_libraries.name', 'asc')
+      .execute();
+
+    res.json(subscriptions);
+  } catch (error) {
+    console.error('Error fetching library subscriptions:', error);
+    res.status(500).json({ error: 'Failed to fetch library subscriptions' });
+  }
+});
+
+/**
+ * Subscribe a user to an Onleihe library
+ */
+router.post('/:id/library-subscriptions', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id as string);
+    const { library_id } = req.body;
+
+    if (isNaN(userId)) {
+      res.status(400).json({ error: 'Invalid user ID' });
+      return;
+    }
+
+    if (!library_id) {
+      res.status(400).json({ error: 'library_id is required' });
+      return;
+    }
+
+    const db = getDatabase();
+
+    // Check if user exists
+    const user = await db
+      .selectFrom('users')
+      .select('id')
+      .where('id', '=', userId)
+      .executeTakeFirst();
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Check if library exists
+    const library = await db
+      .selectFrom('onleihe_libraries')
+      .select('id')
+      .where('id', '=', library_id)
+      .executeTakeFirst();
+
+    if (!library) {
+      res.status(404).json({ error: 'Library not found' });
+      return;
+    }
+
+    // Check if subscription already exists
+    const existingSubscription = await db
+      .selectFrom('user_onleihe_libraries')
+      .select('id')
+      .where('user_id', '=', userId)
+      .where('library_id', '=', library_id)
+      .executeTakeFirst();
+
+    if (existingSubscription) {
+      res.status(409).json({ error: 'User is already subscribed to this library' });
+      return;
+    }
+
+    // Create subscription
+    const result = await db
+      .insertInto('user_onleihe_libraries')
+      .values({
+        user_id: userId,
+        library_id,
+      })
+      .executeTakeFirst();
+
+    const subscriptionId = Number(result.insertId);
+    const subscription = await db
+      .selectFrom('user_onleihe_libraries')
+      .innerJoin('onleihe_libraries', 'user_onleihe_libraries.library_id', 'onleihe_libraries.id')
+      .select([
+        'user_onleihe_libraries.id as subscription_id',
+        'user_onleihe_libraries.created_at as subscribed_at',
+        'onleihe_libraries.id as library_id',
+        'onleihe_libraries.name as library_name',
+        'onleihe_libraries.onleihe_id',
+        'onleihe_libraries.description',
+      ])
+      .where('user_onleihe_libraries.id', '=', subscriptionId)
+      .executeTakeFirst();
+
+    res.status(201).json(subscription);
+  } catch (error) {
+    console.error('Error creating library subscription:', error);
+    res.status(500).json({ error: 'Failed to create library subscription' });
+  }
+});
+
+/**
+ * Unsubscribe a user from an Onleihe library
+ */
+router.delete('/:id/library-subscriptions/:subscriptionId', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id as string);
+    const subscriptionId = parseInt(req.params.subscriptionId as string);
+
+    if (isNaN(userId) || isNaN(subscriptionId)) {
+      res.status(400).json({ error: 'Invalid user ID or subscription ID' });
+      return;
+    }
+
+    const db = getDatabase();
+
+    // Check if subscription exists and belongs to the user
+    const subscription = await db
+      .selectFrom('user_onleihe_libraries')
+      .select('id')
+      .where('id', '=', subscriptionId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (!subscription) {
+      res.status(404).json({ error: 'Library subscription not found' });
+      return;
+    }
+
+    // Delete subscription
+    await db
+      .deleteFrom('user_onleihe_libraries')
+      .where('id', '=', subscriptionId)
+      .execute();
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting library subscription:', error);
+    res.status(500).json({ error: 'Failed to delete library subscription' });
+  }
+});
+
 export default router;

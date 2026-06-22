@@ -52,6 +52,30 @@ export interface UserBookSubscriptionsTable {
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
+export interface OnleiheLibrariesTable {
+  id: ColumnType<number, never, never>;
+  name: string;
+  onleihe_id: string;
+  description: string | null;
+  created_at: ColumnType<Date, string | undefined, never>;
+}
+
+export interface UserOnleiheLibrariesTable {
+  id: ColumnType<number, never, never>;
+  user_id: number;
+  library_id: number;
+  created_at: ColumnType<Date, string | undefined, never>;
+}
+
+export interface BookOnleiheAvailabilityTable {
+  id: ColumnType<number, never, never>;
+  book_id: number;
+  library_id: number;
+  is_available: ColumnType<number, number | undefined, number>; // SQLite uses 0/1 for boolean
+  checked_at: ColumnType<Date, string | undefined, string>;
+  created_at: ColumnType<Date, string | undefined, never>;
+}
+
 // Database interface
 export interface Database {
   users: UsersTable;
@@ -60,4 +84,7 @@ export interface Database {
   notifications: NotificationsTable;
   user_author_subscriptions: UserAuthorSubscriptionsTable;
   user_book_subscriptions: UserBookSubscriptionsTable;
+  onleihe_libraries: OnleiheLibrariesTable;
+  user_onleihe_libraries: UserOnleiheLibrariesTable;
+  book_onleihe_availability: BookOnleiheAvailabilityTable;
 }

@@ -117,6 +117,57 @@ const createTables = async (): Promise<void> => {
     .unique()
     .execute();
 
+  // Create onleihe_libraries table
+  await db.schema
+    .createTable('onleihe_libraries')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('name', 'text', (col) => col.notNull())
+    .addColumn('onleihe_id', 'text', (col) => col.notNull().unique())
+    .addColumn('description', 'text')
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create user_onleihe_libraries table
+  await db.schema
+    .createTable('user_onleihe_libraries')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('user_id', 'integer', (col) => col.notNull().references('users.id'))
+    .addColumn('library_id', 'integer', (col) => col.notNull().references('onleihe_libraries.id'))
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create unique index on user_id and library_id to prevent duplicate library subscriptions
+  await db.schema
+    .createIndex('idx_user_onleihe_libraries_unique')
+    .ifNotExists()
+    .on('user_onleihe_libraries')
+    .columns(['user_id', 'library_id'])
+    .unique()
+    .execute();
+
+  // Create book_onleihe_availability table
+  await db.schema
+    .createTable('book_onleihe_availability')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('book_id', 'integer', (col) => col.notNull().references('books.id'))
+    .addColumn('library_id', 'integer', (col) => col.notNull().references('onleihe_libraries.id'))
+    .addColumn('is_available', 'integer', (col) => col.defaultTo(0).notNull())
+    .addColumn('checked_at', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create unique index on book_id and library_id to prevent duplicate availability records
+  await db.schema
+    .createIndex('idx_book_onleihe_availability_unique')
+    .ifNotExists()
+    .on('book_onleihe_availability')
+    .columns(['book_id', 'library_id'])
+    .unique()
+    .execute();
+
   console.log('Database tables created successfully');
 };
 

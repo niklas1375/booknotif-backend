@@ -8,6 +8,7 @@ import { initEmailNotificationCron, triggerManualEmailProcessing } from './jobs/
 import authorRoutes from './routes/authorRoutes';
 import bookRoutes from './routes/bookRoutes';
 import userRoutes from './routes/userRoutes';
+import libraryRoutes from './routes/libraryRoutes';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.get('/api', (_req: Request, res: Response) => {
 app.use('/api/authors', authorRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/libraries', libraryRoutes);
 
 // Manual trigger endpoint for book check (useful for testing)
 app.post('/api/check-books', async (_req: Request, res: Response) => {
