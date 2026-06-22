@@ -211,6 +211,41 @@ To find the correct `onleihe_id` for a library:
      -d '{"user_id": 1}'
    ```
 
+## Alternative Search Terms
+
+Sometimes a book's official title doesn't match how it appears in Onleihe. You can provide an **alternative search term** to help the system find the book.
+
+### When to Use Alternative Search Terms
+
+- Book has a different title in Onleihe (e.g., subtitle differences)
+- Book is part of a series and needs specific search terms
+- Original title vs. translated title differences
+- Special characters or formatting differences
+
+### Setting Alternative Search Terms
+
+Update a book's alternative search term via the API:
+
+```bash
+curl -X PATCH http://localhost:3000/api/books/1/alternative-search-term \
+  -H "Content-Type: application/json" \
+  -d '{"alternative_search_term": "Alternative Title"}'
+```
+
+To remove an alternative search term:
+
+```bash
+curl -X PATCH http://localhost:3000/api/books/1/alternative-search-term \
+  -H "Content-Type: application/json" \
+  -d '{"alternative_search_term": null}'
+```
+
+### How It Works
+
+- If an alternative search term is set, the system uses it **instead of** the official title when searching Onleihe
+- The official title is still displayed to users in the UI
+- This is optional - most books work fine with their official title
+
 ## How It Works
 
 ### Availability Checking
@@ -235,11 +270,27 @@ The system is optimized to minimize API calls and execution time:
 - **Skip already available books**: If a book was previously found available in a library, that data is reused without making a new API call
 - **Early termination**: Stops checking a book once all subscribed users have been notified via their accessible libraries
 - **Relevant libraries only**: Only checks libraries that at least one user has access to
+- **1-year expiration**: Books that have been subscribed to for over 1 year without becoming available are automatically excluded from checks (unlikely to become available)
 
 **Example:** If 10 users are subscribed to the same book, and it's available in Berlin library (which all 10 users have access to), the system:
 1. Makes 1 API call to check Berlin
 2. Notifies all 10 users
 3. Skips checking other libraries since all users are satisfied
+
+### Subscription Expiration Policy
+
+**Books are only checked for 1 year after the first subscription.**
+
+- If a book doesn't become available within 1 year of the oldest subscription, it's automatically excluded from future checks
+- This is based on the assumption that if a book hasn't appeared in Onleihe within a year, it's unlikely to appear later
+- Users can re-subscribe to a book if they want to restart the checking period
+- This significantly reduces API load for books that are unlikely to ever be available
+
+**Example Timeline:**
+- Day 1: User subscribes to "Book X"
+- Days 1-365: System checks for availability
+- Day 366+: System stops checking (subscription expired)
+- If user re-subscribes: Checking resumes for another year
 
 ### Notification Logic
 

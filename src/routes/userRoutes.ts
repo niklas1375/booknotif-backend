@@ -140,6 +140,7 @@ router.get('/:id/author-subscriptions', async (req: Request, res: Response) => {
 router.get('/:id/book-subscriptions', async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.id as string);
+    const { status } = req.query;
 
     if (isNaN(userId)) {
       res.status(400).json({ error: 'Invalid user ID' });
@@ -147,12 +148,14 @@ router.get('/:id/book-subscriptions', async (req: Request, res: Response) => {
     }
 
     const db = getDatabase();
-    const subscriptions = await db
+    let query = db
       .selectFrom('user_book_subscriptions')
       .innerJoin('books', 'user_book_subscriptions.book_id', 'books.id')
       .leftJoin('authors', 'books.author_id', 'authors.id')
       .select([
         'user_book_subscriptions.id as subscription_id',
+        'user_book_subscriptions.status',
+        'user_book_subscriptions.completed_at',
         'user_book_subscriptions.created_at as subscribed_at',
         'books.id as book_id',
         'books.title',
@@ -163,7 +166,15 @@ router.get('/:id/book-subscriptions', async (req: Request, res: Response) => {
         'authors.id as author_id',
         'authors.name as author_name',
       ])
-      .where('user_book_subscriptions.user_id', '=', userId)
+      .where('user_book_subscriptions.user_id', '=', userId);
+
+    // Filter by status if provided
+    if (status && typeof status === 'string') {
+      query = query.where('user_book_subscriptions.status', '=', status);
+    }
+
+    const subscriptions = await query
+      .orderBy('user_book_subscriptions.status', 'asc') // Show active first
       .orderBy('books.created_at', 'desc')
       .execute();
 

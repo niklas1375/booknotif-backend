@@ -59,6 +59,7 @@ const createTables = async (): Promise<void> => {
     .addColumn('author_id', 'integer', (col) => col.references('authors.id'))
     .addColumn('isbn', 'text')
     .addColumn('published_date', 'text')
+    .addColumn('alternative_search_term', 'text')
     .addColumn('onleihe_available', 'integer', (col) => col.defaultTo(0).notNull())
     .addColumn('onleihe_checked_at', 'text')
     .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
@@ -105,6 +106,8 @@ const createTables = async (): Promise<void> => {
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
     .addColumn('user_id', 'integer', (col) => col.notNull().references('users.id'))
     .addColumn('book_id', 'integer', (col) => col.notNull().references('books.id'))
+    .addColumn('status', 'text', (col) => col.defaultTo('active').notNull())
+    .addColumn('completed_at', 'text')
     .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
     .execute();
 
@@ -165,6 +168,27 @@ const createTables = async (): Promise<void> => {
     .ifNotExists()
     .on('book_onleihe_availability')
     .columns(['book_id', 'library_id'])
+    .unique()
+    .execute();
+
+  // Create user_ignored_books table
+  await db.schema
+    .createTable('user_ignored_books')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('user_id', 'integer', (col) => col.notNull().references('users.id'))
+    .addColumn('book_id', 'integer', (col) => col.notNull().references('books.id'))
+    .addColumn('subscription_id', 'integer', (col) => col.notNull().references('user_book_subscriptions.id'))
+    .addColumn('reason', 'text')
+    .addColumn('created_at', 'text', (col) => col.defaultTo('CURRENT_TIMESTAMP').notNull())
+    .execute();
+
+  // Create unique index on user_id, book_id, and subscription_id to prevent duplicate ignore records
+  await db.schema
+    .createIndex('idx_user_ignored_books_unique')
+    .ifNotExists()
+    .on('user_ignored_books')
+    .columns(['user_id', 'book_id', 'subscription_id'])
     .unique()
     .execute();
 

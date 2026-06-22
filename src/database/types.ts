@@ -21,6 +21,7 @@ export interface BooksTable {
   author_id: number | null;
   isbn: string | null;
   published_date: string | null;
+  alternative_search_term: string | null;
   onleihe_available: ColumnType<number, number | undefined, number>; // SQLite uses 0/1 for boolean
   onleihe_checked_at: ColumnType<Date, string | undefined, string> | null;
   created_at: ColumnType<Date, string | undefined, never>;
@@ -49,6 +50,8 @@ export interface UserBookSubscriptionsTable {
   id: ColumnType<number, never, never>;
   user_id: number;
   book_id: number;
+  status: string; // 'active', 'completed', 'expired'
+  completed_at: ColumnType<Date, string | undefined, string> | null;
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
@@ -76,6 +79,15 @@ export interface BookOnleiheAvailabilityTable {
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
+export interface UserIgnoredBooksTable {
+  id: ColumnType<number, never, never>;
+  user_id: number;
+  book_id: number;
+  subscription_id: number; // Reference to the subscription that found this book
+  reason: string | null; // Optional reason for ignoring (e.g., 'wrong_book', 'not_interested')
+  created_at: ColumnType<Date, string | undefined, never>;
+}
+
 // Database interface
 export interface Database {
   users: UsersTable;
@@ -87,4 +99,5 @@ export interface Database {
   onleihe_libraries: OnleiheLibrariesTable;
   user_onleihe_libraries: UserOnleiheLibrariesTable;
   book_onleihe_availability: BookOnleiheAvailabilityTable;
+  user_ignored_books: UserIgnoredBooksTable;
 }

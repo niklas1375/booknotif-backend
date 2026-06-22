@@ -10,6 +10,7 @@ export class OnleiheCheckService {
    * - Check each book/library combination only once per run
    * - Reuse availability results across all users
    * - Only stop checking a book once ALL users have been notified via their accessible libraries
+   * - Skip books where the oldest subscription is over 1 year old (unlikely to become available)
    */
   async checkOnleiheAvailability(): Promise<void> {
     console.log('Starting Onleihe availability check...');
@@ -17,7 +18,13 @@ export class OnleiheCheckService {
     try {
       const db = getDatabase();
 
+      // Calculate date 1 year ago
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAgoISO = oneYearAgo.toISOString();
+
       // Get all books that have at least one user subscription
+      // Only include books where the oldest subscription is less than 1 year old
       const booksToCheck = await db
         .selectFrom('books')
         .innerJoin('user_book_subscriptions', 'books.id', 'user_book_subscriptions.book_id')
@@ -25,12 +32,16 @@ export class OnleiheCheckService {
         .select([
           'books.id',
           'books.title',
+          'books.alternative_search_term',
           'authors.name as author_name',
         ])
-        .distinct()
+        .where((eb) => 
+          eb.fn.min('user_book_subscriptions.created_at'), '>', oneYearAgoISO
+        )
+        .groupBy(['books.id', 'books.title', 'books.alternative_search_term', 'authors.name'])
         .execute();
 
-      console.log(`Found ${booksToCheck.length} books with subscriptions to check`);
+      console.log(`Found ${booksToCheck.length} books with active subscriptions to check (excluding subscriptions older than 1 year)`);
 
       // Get all active libraries
       const libraries = await db
@@ -45,6 +56,7 @@ export class OnleiheCheckService {
         await this.checkBookAcrossLibraries(
           book.id,
           book.title,
+          book.alternative_search_term,
           book.author_name,
           libraries
         );
@@ -60,15 +72,18 @@ export class OnleiheCheckService {
    * Check a book across libraries, optimizing by:
    * 1. Checking each book/library combination only once
    * 2. Stopping when all users have been notified via their accessible libraries
+   * 3. Ignoring books that users have marked as ignored
    * 
    * @param bookId The database ID of the book
    * @param title The title of the book
+   * @param alternativeSearchTerm Optional alternative search term for the book
    * @param authorName The name of the author
    * @param libraries Array of all libraries to check
    */
   private async checkBookAcrossLibraries(
     bookId: number,
     title: string,
+    alternativeSearchTerm: string | null,
     authorName: string,
     libraries: Array<{ id: number; name: string; onleihe_id: string; description: string | null; created_at: Date }>
   ): Promise<void> {
@@ -84,6 +99,7 @@ export class OnleiheCheckService {
         'user_onleihe_libraries.library_id',
       ])
       .where('user_book_subscriptions.book_id', '=', bookId)
+      .where('user_book_subscriptions.status', '=', 'active')
       .execute();
 
     if (userLibraries.length === 0) {
@@ -139,10 +155,12 @@ export class OnleiheCheckService {
           isAvailable = true;
         } else {
           // Make API call to check availability
-          console.log(`  → Checking ${library.onleihe_id}...`);
+          // Use alternative search term if provided, otherwise use the title
+          const searchTerm = alternativeSearchTerm || title;
+          console.log(`  → Checking ${library.onleihe_id}...${alternativeSearchTerm ? ' (using alternative search term)' : ''}`);
           isAvailable = await onleiheService.isBookAvailable(
             library.onleihe_id,
-            title,
+            searchTerm,
             authorName
           );
 
@@ -183,12 +201,19 @@ export class OnleiheCheckService {
             .filter(userId => !notifiedUsers.has(userId));
 
           if (usersWithAccessToThisLibrary.length > 0) {
-            await this.createOnleiheNotifications(bookId, library.id, usersWithAccessToThisLibrary);
+            // Filter out users who have this book in their ignored list
+            const usersToNotify = await this.filterIgnoredBooks(bookId, usersWithAccessToThisLibrary);
             
-            // Mark these users as notified
-            usersWithAccessToThisLibrary.forEach(userId => notifiedUsers.add(userId));
-            
-            console.log(`  → Notified ${usersWithAccessToThisLibrary.length} user(s) via ${library.onleihe_id}`);
+            if (usersToNotify.length > 0) {
+              await this.createOnleiheNotifications(bookId, library.id, usersToNotify);
+              
+              // Mark these users as notified
+              usersToNotify.forEach(userId => notifiedUsers.add(userId));
+              
+              console.log(`  → Notified ${usersToNotify.length} user(s) via ${library.onleihe_id}`);
+            } else {
+              console.log(`  → Book is ignored by all users with access to ${library.onleihe_id}`);
+            }
           }
         }
 
@@ -210,14 +235,41 @@ export class OnleiheCheckService {
   }
 
   /**
+   * Filter out users who have marked this book as ignored
+   * @param bookId The database ID of the book
+   * @param userIds Array of user IDs to check
+   * @returns Array of user IDs who have not ignored this book
+   */
+  private async filterIgnoredBooks(bookId: number, userIds: number[]): Promise<number[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    const db = getDatabase();
+
+    // Get all users who have ignored this book
+    const ignoredUsers = await db
+      .selectFrom('user_ignored_books')
+      .select('user_id')
+      .where('book_id', '=', bookId)
+      .where('user_id', 'in', userIds)
+      .execute();
+
+    const ignoredUserIds = new Set(ignoredUsers.map(u => u.user_id));
+
+    // Return only users who haven't ignored this book
+    return userIds.filter((userId: number) => !ignoredUserIds.has(userId));
+  }
+
+  /**
    * Create Onleihe availability notifications for specific users
    * @param bookId The database ID of the book
-   * @param libraryId The database ID of the library
+   * @param _libraryId The database ID of the library (unused but kept for future use)
    * @param userIds Array of user IDs to notify
    */
   private async createOnleiheNotifications(
     bookId: number,
-    libraryId: number,
+    _libraryId: number,
     userIds: number[]
   ): Promise<void> {
     try {
