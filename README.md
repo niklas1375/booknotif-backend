@@ -117,8 +117,36 @@ The SQLite database will be persisted in the `./data` directory on your host mac
      booknotif-backend
    ```
 
-## API Endpoints
+## Documentation
 
+### 📚 [Complete API Documentation](./docs/api-spec.yaml)
+OpenAPI 3.0 specification with detailed endpoint documentation, request/response schemas, and examples. View in [Swagger Editor](https://editor.swagger.io/) or any OpenAPI-compatible tool.
+
+### 📖 Feature Guides
+- **[Finished Searches & Relaunch](./docs/finished-searches-feature.md)** - View completed searches and relaunch them if the found book wasn't correct
+- **[Multi-Library Setup](./docs/multi-library-setup.md)** - Configure and manage multiple Onleihe libraries
+
+### Quick API Reference
+
+#### User Management
+- `GET /users` - List all users
+- `GET /users/:id` - Get user details
+- `POST /users` - Create new user
+- `GET /users/:id/book-subscriptions?status=completed` - Get user's book subscriptions (filterable by status)
+- `GET /users/:id/author-subscriptions` - Get user's author subscriptions
+- `GET /users/:id/library-subscriptions` - Get user's library subscriptions
+
+#### Book Subscriptions
+- `POST /books/:id/subscribe` - Subscribe to a book for availability notifications
+- `POST /books/:id/reactivate` - Reactivate a completed subscription (marks previous book as ignored)
+- `DELETE /books/:id/subscribe` - Unsubscribe from a book
+
+#### Library Management
+- `GET /libraries` - List all Onleihe libraries
+- `POST /users/:id/library-subscriptions` - Subscribe to a library
+- `DELETE /users/:id/library-subscriptions/:subscriptionId` - Unsubscribe from a library
+
+#### System
 - `GET /health` - Health check endpoint
 - `GET /api` - API information
 

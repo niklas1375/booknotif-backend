@@ -1,0 +1,354 @@
+openapi: 3.0.3
+info:
+  title: Book Notification API
+  description: API for managing book and author subscriptions with Onleihe availability notifications
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: Users
+    description: User management endpoints
+  - name: Books
+    description: Book management and subscription endpoints
+  - name: Authors
+    description: Author management endpoints
+  - name: Libraries
+    description: Onleihe library management endpoints
+
+paths:
+  /users/{userId}/book-subscriptions:
+    get:
+      tags:
+        - Users
+      summary: Get user's book subscriptions
+      description: Retrieve all book subscriptions for a user, optionally filtered by status
+      operationId: getUserBookSubscriptions
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The ID of the user
+          schema:
+            type: integer
+            example: 1
+        - name: status
+          in: query
+          required: false
+          description: Filter subscriptions by status
+          schema:
+            type: string
+            enum: [active, completed, expired]
+            example: completed
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookSubscription'
+              examples:
+                completedSubscriptions:
+                  summary: Example of completed subscriptions
+                  value:
+                    - subscription_id: 1
+                      status: completed
+                      completed_at: "2024-01-15T10:30:00Z"
+                      subscribed_at: "2023-12-01T08:00:00Z"
+                      book_id: 123
+                      title: "The Great Gatsby"
+                      isbn: "9780743273565"
+                      published_date: "2004-09-30"
+                      onleihe_available: 1
+                      onleihe_checked_at: "2024-01-15T10:00:00Z"
+                      author_id: 45
+                      author_name: "F. Scott Fitzgerald"
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /books/{bookId}/reactivate:
+    post:
+      tags:
+        - Books
+      summary: Reactivate a completed book subscription
+      description: |
+        Reactivates a completed book subscription, marking the previously found book as ignored.
+        This allows users to restart their search if the found book wasn't what they were looking for.
+        
+        **What happens when you reactivate:**
+        1. The found book is added to the user's ignored books list
+        2. The subscription status is changed from 'completed' to 'active'
+        3. The subscription's created_at timestamp is reset (restarts the 1-year timer)
+        4. Previous availability data for the book is cleared
+        5. Previous notifications for this user/book are deleted
+        6. The next scheduled check will search again, ignoring the previously found book
+      operationId: reactivateBookSubscription
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          description: The ID of the book subscription to reactivate
+          schema:
+            type: integer
+            example: 123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+                  description: The ID of the user reactivating the subscription
+                  example: 1
+                reason:
+                  type: string
+                  description: Optional reason for ignoring the previously found book
+                  example: "wrong_edition"
+                  enum:
+                    - wrong_book
+                    - wrong_edition
+                    - not_interested
+                    - other
+            examples:
+              withReason:
+                summary: Reactivate with reason
+                value:
+                  user_id: 1
+                  reason: "wrong_edition"
+              withoutReason:
+                summary: Reactivate without reason
+                value:
+                  user_id: 1
+      responses:
+        '200':
+          description: Subscription successfully reactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Subscription reactivated successfully. The previously found book will be ignored in future searches."
+        '400':
+          description: Bad request (invalid ID or subscription already active)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidId:
+                  summary: Invalid book ID
+                  value:
+                    error: "Invalid book ID"
+                alreadyActive:
+                  summary: Subscription already active
+                  value:
+                    error: "Subscription is already active"
+                missingUserId:
+                  summary: Missing user ID
+                  value:
+                    error: "User ID is required"
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Subscription not found"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /books/{bookId}/subscribe:
+    post:
+      tags:
+        - Books
+      summary: Subscribe to a book
+      description: Create a new subscription to receive notifications when a book becomes available
+      operationId: subscribeToBook
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Successfully subscribed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Successfully subscribed to book"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Already subscribed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Books
+      summary: Unsubscribe from a book
+      description: Remove a book subscription
+      operationId: unsubscribeFromBook
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+                  example: 1
+      responses:
+        '200':
+          description: Successfully unsubscribed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Successfully unsubscribed from book"
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    BookSubscription:
+      type: object
+      properties:
+        subscription_id:
+          type: integer
+          description: Unique identifier for the subscription
+          example: 1
+        status:
+          type: string
+          description: Current status of the subscription
+          enum: [active, completed, expired]
+          example: completed
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the subscription was completed (book found)
+          example: "2024-01-15T10:30:00Z"
+        subscribed_at:
+          type: string
+          format: date-time
+          description: Timestamp when the subscription was created
+          example: "2023-12-01T08:00:00Z"
+        book_id:
+          type: integer
+          description: ID of the book
+          example: 123
+        title:
+          type: string
+          description: Title of the book
+          example: "The Great Gatsby"
+        isbn:
+          type: string
+          nullable: true
+          description: ISBN of the book
+          example: "9780743273565"
+        published_date:
+          type: string
+          nullable: true
+          description: Publication date of the book
+          example: "2004-09-30"
+        onleihe_available:
+          type: integer
+          description: Whether the book is available in Onleihe (0 or 1)
+          example: 1
+        onleihe_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last time Onleihe availability was checked
+          example: "2024-01-15T10:00:00Z"
+        author_id:
+          type: integer
+          nullable: true
+          description: ID of the author
+          example: 45
+        author_name:
+          type: string
+          nullable: true
+          description: Name of the author
+          example: "F. Scott Fitzgerald"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Invalid user ID"
