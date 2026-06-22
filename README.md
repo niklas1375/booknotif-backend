@@ -125,6 +125,7 @@ OpenAPI 3.0 specification with detailed endpoint documentation, request/response
 ### 📖 Feature Guides
 - **[Finished Searches & Relaunch](./docs/finished-searches-feature.md)** - View completed searches and relaunch them if the found book wasn't correct
 - **[Multi-Library Setup](./docs/multi-library-setup.md)** - Configure and manage multiple Onleihe libraries
+- **[Testing Guide](./docs/testing.md)** - Comprehensive testing documentation with examples and best practices
 
 ### Quick API Reference
 
@@ -161,7 +162,11 @@ OpenAPI 3.0 specification with detailed endpoint documentation, request/response
 - `npm run dev` - Start development server with hot-reloading
 - `npm run build` - Compile TypeScript to JavaScript
 - `npm start` - Start production server
-- `npm test` - Run tests (not yet implemented)
+- `npm test` - Run all tests
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run test:unit` - Run only unit tests
+- `npm run test:integration` - Run only integration tests
 
 
 ## License
